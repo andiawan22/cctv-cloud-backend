@@ -332,32 +332,59 @@ class CameraController extends Controller
         return $response->successful() ? $response->json() : null;
     }
 
-    private function createZoneMinderMonitor($camera, $authData) {
+    private function createZoneMinderMonitor($camera, $authData)
+    {
         $token = $authData['access_token'] ?? ($authData['credentials'] ?? '');
-        $url = env('ZONEMINDER_URL') . '/monitors.json' . ($token ? '?token=' . $token : '');
-        
-        // Memecah format "1920x1080" menjadi Lebar dan Tinggi
-        $dimensi = explode('x', $camera->resolution);
-        $width = $dimensi[0] ?? 1280;
-        $height = $dimensi[1] ?? 720;
+
+        // Menangkap input dinamis, memberikan nilai default jika kosong
+        // (Pastikan nama variabel ini sesuai dengan nama kolom di database/form kamu)
+        $width = $camera->width ?? 1280; 
+        $height = $camera->height ?? 720;
+        $function = $camera->recording_method ?? 'Monitor'; // Misal: Monitor, Modect, Record
 
         $monitorData = [
             'Monitor' => [
                 'Name' => $camera->camera_name,
-                'Type' => 'Ffmpeg', 
-                'Function' => $camera->record_mode, // Dinamis sesuai pilihan user
+                'Type' => 'Ffmpeg',
+                'Function' => $function,
                 'Enabled' => 1,
-                'Method' => 'rtpRtsp', 
+                'Method' => 'rtpRtsp',
                 'Path' => $camera->rtsp_url,
-                'Width' => $width,                  // Dinamis
-                'Height' => $height,                // Dinamis
+                'Width' => $width, 
+                'Height' => $height, 
                 'Colours' => 3,
             ]
         ];
-        
+
+        $url = env('ZONEMINDER_URL') . '/monitors.json';
+        if ($token) { $url .= '?token=' . $token; }
+
         $response = Http::post($url, $monitorData);
-        return ($response->successful() && $response->json('message') === 'Saved') 
-            ? $this->getMonitorIdByName($camera->camera_name, $token) : null;
+
+        // Jika berhasil disimpan di ZM, ambil ID Monitor-nya untuk disimpan di database Laravel
+        if ($response->successful() && $response->json('message') === 'Saved') {
+            return $this->getMonitorIdByName($camera->camera_name, $token);
+        }
+
+        return null;
+    }
+
+    private function getMonitorIdByName($cameraName, $token)
+    {
+        $url = env('ZONEMINDER_URL') . '/monitors.json';
+        if ($token) { $url .= '?token=' . $token; }
+
+        $response = Http::get($url);
+
+        if ($response->successful()) {
+            $monitors = $response->json('monitors') ?? [];
+            foreach ($monitors as $monitor) {
+                if (($monitor['Monitor']['Name'] ?? '') === $cameraName) {
+                    return $monitor['Monitor']['Id'];
+                }
+            }
+        }
+        return null;
     }
 
     private function updateZoneMinderMonitor($monitorId, $camera, $authData) {

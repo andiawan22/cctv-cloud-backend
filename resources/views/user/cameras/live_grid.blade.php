@@ -25,10 +25,11 @@
     @forelse($cameras as $camera)
         
         @php
-            // Merakit URL Streaming yang bersih
+            // Merakit URL Streaming menggunakan Relative Path untuk melewati Nginx Proxy
             $streamUrl = '';
             if($camera->status == 'online' && $camera->zoneminder_monitor_id) {
-                $streamUrl = $zmHost . '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
+                // Menghapus $zmHost dan langsung menggunakan /zm/...
+                $streamUrl = '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
                 if (!empty($zmToken)) { $streamUrl .= '&token=' . $zmToken; } 
                 else { $streamUrl .= '&user=' . $zmUser . '&pass=' . $zmPass; }
             }

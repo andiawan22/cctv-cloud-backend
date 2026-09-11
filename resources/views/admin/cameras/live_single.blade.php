@@ -4,7 +4,8 @@
 
 @section('content')
 @php
-    $streamUrl = $zmHost . '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
+    // Menghapus $zmHost dan menggunakan Relative Path
+    $streamUrl = '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
     if (!empty($zmToken)) { $streamUrl .= '&token=' . $zmToken; } 
     else { $streamUrl .= '&user=' . $zmUser . '&pass=' . $zmPass; }
 @endphp
