@@ -6,18 +6,18 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up(): void
+    public function up()
     {
         Schema::table('cameras', function (Blueprint $table) {
-            $table->string('record_mode')->default('Modect')->after('connection_type');
-            $table->string('resolution')->default('1280x720')->after('record_mode');
+            // Menambahkan kolom onvif_port setelah ip_address dengan nilai bawaan 8899
+            $table->integer('onvif_port')->default(8899)->after('ip_address');
         });
     }
 
-    public function down(): void
+    public function down()
     {
         Schema::table('cameras', function (Blueprint $table) {
-            $table->dropColumn(['record_mode', 'resolution']);
+            $table->dropColumn('onvif_port');
         });
     }
 };

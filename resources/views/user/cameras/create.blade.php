@@ -139,7 +139,15 @@
         <p class="text-sm text-gray-500 mt-1">Dimensi piksel streaming kamera.</p>
     </div>
 
-
+{{-- port onviv --}}
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-slate-700 mb-1">Port ONVIF</label>
+        <input type="number" name="onvif_port" 
+            value="{{ old('onvif_port', $camera->onvif_port ?? 8899) }}" 
+            class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            required>
+        <p class="text-xs text-gray-500 mt-1">Standar bawaan adalah 8899 atau 80.</p>
+    </div>
     {{-- ===========================
             ONVIF
     ============================ --}}

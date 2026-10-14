@@ -15,6 +15,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Paksa Laravel selalu menggunakan tautan HTTPS
-        URL::forceScheme('https');
+        #URL::forceScheme('https');
     }
 }

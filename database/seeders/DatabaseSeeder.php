@@ -1,15 +1,6 @@
 <?php
 
-/**
- * ==========================================================
- * Sistem      : Cloud CCTV Berbasis Laravel
- * Framework   : Laravel 13
- * File        : DatabaseSeeder.php
- * Lokasi      : database/seeders
- * Fungsi      : Menjalankan seluruh seeder aplikasi
- * ==========================================================
- */
-
+/
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;

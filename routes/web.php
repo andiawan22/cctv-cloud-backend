@@ -20,6 +20,8 @@ use App\Http\Controllers\Admin\StorageController;
 */
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
 use App\Http\Controllers\User\CameraController as UserCameraController;
+use App\Http\Controllers\User\LiveViewController;
+use App\Http\Controllers\User\PlaybackController;
 
 /*
 |--------------------------------------------------------------------------
@@ -95,18 +97,18 @@ Route::middleware(['auth', 'role:user'])
 
         // --- ROUTE SINKRONISASI STATUS USER ---
         Route::post('/cameras/sync-status', [UserCameraController::class, 'syncStatus'])->name('cameras.sync_status');
-
-        // --- ROUTE LIVE VIEW USER ---
-        Route::get('/live', [UserCameraController::class, 'liveGrid'])->name('live.grid');
-        Route::get('/live/{camera}', [UserCameraController::class, 'liveSingle'])->name('live.single');
-        // --- ROUTE PLAYBACK USER ---
-        Route::get('/playback', [UserCameraController::class, 'playbackIndex'])->name('playback.index');
-        Route::get('/playback/show', [UserCameraController::class, 'playbackShow'])->name('playback.show');
-        Route::get('/playback/play/{camera_id}/{tanggal}/{event_id}', [UserCameraController::class, 'playbackPlay'])->name('playback.play');
-        Route::get('/playback/stream', [UserCameraController::class, 'streamVideo'])->name('playback.stream');
-
         Route::resource('cameras', UserCameraController::class);
-      
+        
+        // --- ROUTE LIVE VIEW USER (SUDAH DIPERBAIKI) ---
+        Route::get('/live-grid', [LiveViewController::class, 'liveGrid'])->name('live.grid');
+        Route::get('/live/{camera}', [LiveViewController::class, 'liveSingle'])->name('live.single');
+        //UNTUK PTZ
+        // Cukup beri nama 'live.ptz' karena otomatis akan ditambah 'user.' dari group di atasnya
+        Route::post('/live/ptz', [LiveViewController::class, 'controlPtz'])->name('live.ptz');
+        
+        // --- ROUTE PLAYBACK USER ---
+        Route::get('/playback', [PlaybackController::class, 'index'])->name('playback.index');
+        Route::get('/playback/stream/{id}', [PlaybackController::class, 'streamVideo'])->name('playback.stream');
 });
 
 /*

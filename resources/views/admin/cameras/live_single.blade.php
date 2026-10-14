@@ -4,10 +4,16 @@
 
 @section('content')
 @php
-    // Menghapus $zmHost dan menggunakan Relative Path
-    $streamUrl = '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
-    if (!empty($zmToken)) { $streamUrl .= '&token=' . $zmToken; } 
-    else { $streamUrl .= '&user=' . $zmUser . '&pass=' . $zmPass; }
+    // [PERBAIKAN LOKAL] Merakit URL Streaming menggunakan Absolute Path ($zmHost)
+    $streamUrl = '';
+    if($camera->status == 'online' && $camera->zoneminder_monitor_id) {
+        
+        // Tambahkan $zmHost di depan agar menembak IP Proxmox, bukan localhost
+        $streamUrl = $zmHost . '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
+        
+        if (!empty($zmToken)) { $streamUrl .= '&token=' . $zmToken; } 
+        else { $streamUrl .= '&user=' . $zmUser . '&pass=' . $zmPass; }
+    }
 @endphp
 
 <div class="flex justify-between items-center mb-6">

@@ -5,12 +5,17 @@
 @section('content')
 
 @php
-    // Menghapus $zmHost dan menggunakan Relative Path
-    $streamUrl = '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
-    if (!empty($zmToken)) { $streamUrl .= '&token=' . $zmToken; } 
-    else { $streamUrl .= '&user=' . $zmUser . '&pass=' . $zmPass; }
+    // [PERBAIKAN LOKAL] Merakit URL Streaming menggunakan Absolute Path ($zmHost)
+    $streamUrl = '';
+    if($camera->status == 'online' && $camera->zoneminder_monitor_id) {
+        
+        // Tambahkan $zmHost di depan agar menembak IP Proxmox, bukan localhost
+        $streamUrl = $zmHost . '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
+        
+        if (!empty($zmToken)) { $streamUrl .= '&token=' . $zmToken; } 
+        else { $streamUrl .= '&user=' . $zmUser . '&pass=' . $zmPass; }
+    }
 @endphp
-
 <!-- HEADER HALAMAN -->
 <div class="flex justify-between items-center mb-6">
     <div>
@@ -49,16 +54,47 @@
                  class="w-full h-full object-contain"
                  onerror="this.onerror=null; this.parentElement.classList.add('text-white'); this.style.display='none'; document.getElementById('error-ui').style.display='flex';">
             
-            <!-- Indikator LIVE (Diperbaiki Posisinya) -->
-            <div class="absolute top-4 right-4 z-10 pointer-events-none">
+            <!-- Indikator LIVE -->
+            <div class="absolute top-4 left-4 z-10 pointer-events-none">
                 <span class="bg-black/50 text-white px-3 py-1.5 rounded-full text-sm backdrop-blur-md flex items-center gap-2 border border-white/10 shadow-lg">
                     <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span> 
                     <span class="font-semibold tracking-wide">LIVE</span>
                 </span>
             </div>
 
+            <!-- ========================================== -->
+            <!-- TAMBAHAN: UI JOYSTICK PTZ (Kanan Bawah)    -->
+            <!-- ========================================== -->
+            <div class="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/20 z-40 opacity-70 hover:opacity-100 transition-opacity duration-300">
+                <div class="grid grid-cols-3 gap-2 w-32 h-32">
+                    <!-- Baris Atas -->
+                    <div></div>
+                    <button onclick="gerakKamera('up')" class="bg-gray-700/80 hover:bg-blue-600 text-white rounded-lg flex items-center justify-center transition active:scale-90 shadow">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                    </button>
+                    <div></div>
+                    
+                    <!-- Baris Tengah -->
+                    <button onclick="gerakKamera('left')" class="bg-gray-700/80 hover:bg-blue-600 text-white rounded-lg flex items-center justify-center transition active:scale-90 shadow">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <div class="flex items-center justify-center text-white/50 text-xs font-bold cursor-default select-none">PTZ</div>
+                    <button onclick="gerakKamera('right')" class="bg-gray-700/80 hover:bg-blue-600 text-white rounded-lg flex items-center justify-center transition active:scale-90 shadow">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+
+                    <!-- Baris Bawah -->
+                    <div></div>
+                    <button onclick="gerakKamera('down')" class="bg-gray-700/80 hover:bg-blue-600 text-white rounded-lg flex items-center justify-center transition active:scale-90 shadow">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div></div>
+                </div>
+            </div>
+            <!-- ========================================== -->
+
             <!-- UI Error (Sembunyi secara default) -->
-            <div id="error-ui" style="display: none;" class="flex-col items-center justify-center w-full h-full absolute inset-0 bg-slate-900">
+            <div id="error-ui" style="display: none;" class="flex-col items-center justify-center w-full h-full absolute inset-0 bg-slate-900 z-50">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-slate-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                 </svg>
@@ -78,5 +114,39 @@
         
     </div>
 </div>
+
+<!-- ========================================== -->
+<!-- SCRIPT AJAX PENGGERAK KAMERA (FINAL)       -->
+<!-- ========================================== -->
+<script>
+function gerakKamera(arah) {
+    const cameraId = '{{ $camera->id }}'; 
+    
+    fetch('{{ route('user.live.ptz') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            camera_id: cameraId,
+            direction: arah
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Logika pop-up (alert) dihapus. 
+        // Pesan sukses cukup dicetak diam-diam di console background.
+        if(data.status === 'success') {
+            console.log("Sukses:", data.output);
+        } else {
+            console.error("Gagal:", data);
+        }
+    })
+    .catch(error => {
+        console.error('Error sistem:', error);
+    });
+}
+</script>
 
 @endsection

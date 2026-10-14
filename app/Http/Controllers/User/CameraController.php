@@ -101,6 +101,7 @@ class CameraController extends Controller
         } else {
             $request->validate([
                 'ip_address'      => 'required',
+                'onvif_port'      => 'required|numeric',
                 'camera_username' => 'required',
                 'camera_password' => 'required',
             ]);
@@ -121,6 +122,7 @@ class CameraController extends Controller
             'camera_name'     => $request->camera_name,
             'connection_type' => $request->connection_type,
             'ip_address'      => $request->ip_address,
+            'onvif_port'      => $request->onvif_port,
             'rtsp_url'        => $rtspUrl,
             'camera_username' => $request->camera_username,
             'camera_password' => $request->camera_password,
@@ -169,6 +171,7 @@ class CameraController extends Controller
         } else {
             $request->validate([
                 'ip_address'      => 'required',
+                'onvif_port'      => 'required|numeric',
                 'camera_username' => 'required',
                 'camera_password' => 'required',
             ]);
@@ -212,48 +215,6 @@ class CameraController extends Controller
         return redirect()->route('user.cameras.index')->with('success', 'Kamera berhasil dihapus.');
     }
 
-    /**
-     * ===========================================================
-     * FITUR LIVE VIEW (GRID & SINGLE)
-     * ===========================================================
-     */
-    public function liveGrid()
-    {
-        $cameras = \Illuminate\Support\Facades\Auth::user()->cameras()->whereNotNull('zoneminder_monitor_id')->get();
-        
-        $authData = $this->loginZoneMinder();
-        $zmToken = $authData['access_token'] ?? ($authData['credentials'] ?? '');
-        
-        // Memaksa mengambil IP murni saja (menghilangkan /api atau /index.php dari .env)
-        $parsed = parse_url(env('ZONEMINDER_URL'));
-        $zmHost = $parsed['scheme'] . '://' . $parsed['host'];
-        if(isset($parsed['port'])) $zmHost .= ':' . $parsed['port'];
-        
-        $zmUser = env('ZONEMINDER_USERNAME');
-        $zmPass = env('ZONEMINDER_PASSWORD');
-
-        return view('user.cameras.live_grid', compact('cameras', 'zmToken', 'zmHost', 'zmUser', 'zmPass'));
-    }
-
-    public function liveSingle(\App\Models\Camera $camera)
-    {
-        if ($camera->user_id != \Illuminate\Support\Facades\Auth::id()) {
-            abort(403);
-        }
-
-        $authData = $this->loginZoneMinder();
-        $zmToken = $authData['access_token'] ?? ($authData['credentials'] ?? '');
-        
-        // Memaksa mengambil IP murni saja 
-        $parsed = parse_url(env('ZONEMINDER_URL'));
-        $zmHost = $parsed['scheme'] . '://' . $parsed['host'];
-        if(isset($parsed['port'])) $zmHost .= ':' . $parsed['port'];
-        
-        $zmUser = env('ZONEMINDER_USERNAME');
-        $zmPass = env('ZONEMINDER_PASSWORD');
-
-        return view('user.cameras.live_single', compact('camera', 'zmToken', 'zmHost', 'zmUser', 'zmPass'));
-    }
 
     /**
      * ===========================================================
@@ -338,15 +299,16 @@ class CameraController extends Controller
 
         // Menangkap input dinamis, memberikan nilai default jika kosong
         // (Pastikan nama variabel ini sesuai dengan nama kolom di database/form kamu)
-        $width = $camera->width ?? 1280; 
-        $height = $camera->height ?? 720;
-        $function = $camera->recording_method ?? 'Monitor'; // Misal: Monitor, Modect, Record
+        $dimensi = explode('x', $camera->resolution);
+        $width = $dimensi[0] ?? 1280; 
+        $height = $dimensi[1] ?? 720;
+        $function = $camera->record_mode ?? 'Monitor'; // Misal: Monitor, Modect, Record
 
         $monitorData = [
             'Monitor' => [
                 'Name' => $camera->camera_name,
                 'Type' => 'Ffmpeg',
-                'Function' => $function,
+                'Function' => $function, // Sekarang akan terisi Modect/Mocord dengan benar
                 'Enabled' => 1,
                 'Method' => 'rtpRtsp',
                 'Path' => $camera->rtsp_url,
@@ -413,72 +375,5 @@ class CameraController extends Controller
         $url = env('ZONEMINDER_URL') . '/monitors/' . $monitorId . '.json' . ($token ? '?token=' . $token : '');
         return Http::delete($url)->successful();
     }
-    public function playbackIndex()
-    {
-        // Ambil daftar kamera milik user yang sedang login
-        $cameras = Camera::where('user_id', auth()->id())->get();
-        
-        // Tampilkan halaman form playback
-        return view('user.playback.index', compact('cameras'));
-    }
-    public function playbackShow(Request $request)
-    {
-        $request->validate([
-            'camera_id' => 'required',
-            'tanggal' => 'required|date',
-        ]);
 
-        $userId = auth()->id();
-        $cameraId = $request->camera_id;
-        $tanggal = $request->tanggal;
-
-        $folderName = 'user_' . $userId;
-        $kameraFolder = 'kamera_' . $cameraId;
-        $targetPath = storage_path("recordings/{$folderName}/{$kameraFolder}/{$tanggal}");
-
-        // Cek apakah folder di tanggal tersebut ada datanya
-        if (file_exists($targetPath)) {
-            // Ambil daftar event (angka-angka tadi), lalu urutkan
-            $eventFolders = array_diff(scandir($targetPath), array('.', '..'));
-            sort($eventFolders); 
-
-            // Ambil data kamera untuk ditampilkan namanya
-            $kamera = \App\Models\Camera::find($cameraId);
-
-            // Arahkan ke halaman pemutar video
-            return view('user.playback.show', compact('kamera', 'tanggal', 'eventFolders'));
-        } else {
-            return back()->with('error', 'Rekaman pada tanggal ' . $tanggal . ' tidak ditemukan.');
-        }
-    }
-
-    // Fungsi untuk membuka halaman pemutar video
-    public function playbackPlay($cameraId, $tanggal, $eventId)
-    {
-        $kamera = \App\Models\Camera::findOrFail($cameraId);
-        $userId = auth()->id();
-        
-        // Cek folder event tersebut
-        $path = storage_path("recordings/user_{$userId}/kamera_{$cameraId}/{$tanggal}/{$eventId}");
-        
-        // Cari file video berformat .mp4 di dalam folder tersebut
-        $files = glob($path . '/*.mp4');
-        $videoFile = count($files) > 0 ? basename($files[0]) : null;
-
-        return view('user.playback.play', compact('kamera', 'tanggal', 'eventId', 'videoFile'));
-    }
-
-    // Fungsi "Pipa" untuk mengalirkan file video fisik ke website (streaming)
-    public function streamVideo(Request $request)
-    {
-        $userId = auth()->id();
-        $path = storage_path("recordings/user_{$userId}/kamera_{$request->camera}/{$request->tanggal}/{$request->event}/{$request->file}");
-        
-        if(file_exists($path)) {
-            // Gunakan fitur bawaan Laravel untuk menampilkan file
-            return response()->file($path);
-        }
-        
-        abort(404, 'File video tidak ditemukan');
-    }
 }

@@ -15,6 +15,7 @@ class Camera extends Model
     'camera_name',
     'connection_type',
     'ip_address',
+    'onvif_port',
     'camera_username',
     'camera_password',
     'rtsp_url',

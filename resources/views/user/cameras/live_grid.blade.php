@@ -25,15 +25,17 @@
     @forelse($cameras as $camera)
         
         @php
-            // Merakit URL Streaming menggunakan Relative Path untuk melewati Nginx Proxy
-            $streamUrl = '';
-            if($camera->status == 'online' && $camera->zoneminder_monitor_id) {
-                // Menghapus $zmHost dan langsung menggunakan /zm/...
-                $streamUrl = '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
-                if (!empty($zmToken)) { $streamUrl .= '&token=' . $zmToken; } 
-                else { $streamUrl .= '&user=' . $zmUser . '&pass=' . $zmPass; }
-            }
-        @endphp
+    // [PERBAIKAN LOKAL] Merakit URL Streaming menggunakan Absolute Path ($zmHost)
+    $streamUrl = '';
+    if($camera->status == 'online' && $camera->zoneminder_monitor_id) {
+        
+        // Tambahkan $zmHost di depan agar menembak IP Proxmox, bukan localhost
+        $streamUrl = $zmHost . '/zm/cgi-bin/nph-zms?mode=jpeg&monitor=' . $camera->zoneminder_monitor_id;
+        
+        if (!empty($zmToken)) { $streamUrl .= '&token=' . $zmToken; } 
+        else { $streamUrl .= '&user=' . $zmUser . '&pass=' . $zmPass; }
+    }
+@endphp
 
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col group">
             
